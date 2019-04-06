@@ -103,7 +103,7 @@ def checkReleaseVer(conf, target=None):
         raise CliError(CANT_RESET_RELEASEVER)
 
 
-CMDS = ['sysupg', 'mount']
+CMDS = ['sysupg']
 
 
 # --- The actual Plugin and Command
@@ -173,10 +173,3 @@ class BeadmCommand(dnf.cli.Command):
         self.cli.demands.available_repos = True
         self.cli.demands.sack_activation = True
         mount(self.opts.be, self.opts.installroot)
-
-    # Mount sub-command
-    def run_mount(self):
-        mount(self.opts.be, self.opts.installroot)
-
-    def configure_mount(self):
-        create_be(self.opts.be)
