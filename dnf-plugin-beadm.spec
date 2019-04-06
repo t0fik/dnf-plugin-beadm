@@ -16,7 +16,7 @@ Provides: dnf-command(beadm)
 Beadm plugin allows dnf utilize ZFS boot environments
 
 %prep
-%setup -q -n dnf-plugin-beadm-%{version}
+%setup -q
 
 %install
 install -D -pm 644 beadm.py %{buildroot}%{python3_sitelib}/dnf-plugins/beadm.py
