@@ -9,6 +9,7 @@ Source0:	https://github.com/t0fik/dnf-plugin-beadm/archive/v%{version}/dnf-plugi
 BuildArch:	noarch
 
 Requires:	zfs-beadm >= 1.1.10
+BuildRequires: python3-rpm-macros
 
 Provides: dnf-command(beadm)
 
