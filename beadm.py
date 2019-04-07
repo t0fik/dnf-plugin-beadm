@@ -103,7 +103,7 @@ def checkReleaseVer(conf, target=None):
         raise CliError(CANT_RESET_RELEASEVER)
 
 
-CMDS = ['sysupg']
+CMDS = ['sysupg', 'update']
 
 
 # --- The actual Plugin and Command
@@ -127,6 +127,9 @@ class BeadmCommand(dnf.cli.Command):
 
     @staticmethod
     def set_argparser(parser):
+        parser.add_argument("--no-downgrade", dest='distro_sync',
+                            action='store_false',
+                            help="keep installed packages if the new release's version is older")
         parser.add_argument("--be", type=str,
                             help="Optional boot environment name")
         parser.add_argument('tid', nargs=1, choices=CMDS,
@@ -156,7 +159,11 @@ class BeadmCommand(dnf.cli.Command):
 
     # System upgrade sub-command
     def run_sysupg(self):
-        self.base.upgrade_all()
+        if self.opts.distro_sync:
+            self.base.distro_sync()
+        else:
+            self.base.upgrade_all()
+
 
     def transaction_sysupg(self):
         if not unmount(self.opts.be):
@@ -168,6 +175,17 @@ class BeadmCommand(dnf.cli.Command):
         print("Creating BE")
         if not create_be(self.opts.be):
             raise CliError(f"BE '{self.opts.be}' already exists.")
+        self.cli.demands.root_user = True
+        self.cli.demands.resolving = True
+        self.cli.demands.available_repos = True
+        self.cli.demands.sack_activation = True
+        mount(self.opts.be, self.opts.installroot)
+
+    # Update system packages
+    def run_update(self):
+        self.base.upgrade()
+
+    def configure_update(self):
         self.cli.demands.root_user = True
         self.cli.demands.resolving = True
         self.cli.demands.available_repos = True

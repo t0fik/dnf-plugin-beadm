@@ -1,6 +1,6 @@
 Name:		python3-dnf-plugin-beadm
-Version:	0.1.0
-Release:	2%{?dist}
+Version:	0.1.1
+Release:	1%{?dist}
 Summary:	BE Plugin for DNF
 
 License:	GPLv3
@@ -31,6 +31,9 @@ install -D -pm 644 beadm.py %{buildroot}%{python3_sitelib}/dnf-plugins/beadm.py
 %license
 
 %changelog
+* Sun Apr 07 2019 Jerzy Drozdz <rpmbuilder@jdsieci.pl> - 0.1.1-1
+- dist-sync is default method now
+
 * Sat Apr 06 2019 Jerzy Drozdz <rpmbuilder@jdsieci.pl> - 0.1.0-2
 - Added python3-dnf requisite
 
