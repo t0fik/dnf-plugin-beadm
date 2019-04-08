@@ -1,14 +1,16 @@
 from __future__ import unicode_literals
 import dnf.cli
 from dnf.cli import CliError
+from dnf.cli.option_parser import OptionParser
 import subprocess
 import os
 import os.path
 import json
 import tempfile
+import datetime
+import time
 
-from pprint import pprint
-
+import dnf.cli.commands.upgrade as dnf_upgrade
 
 RELEASEVER_MSG = "Need a --releasever greater than the current system version."
 CANT_RESET_RELEASEVER = "Sorry, you need to use 'download --releasever' instead of '--network'"
@@ -57,14 +59,43 @@ def activate_be(bename):
                      stderr=subprocess.DEVNULL)
 
 
-def create_be(bename):
-    proc = subprocess.Popen(['/usr/sbin/beadm', 'create', bename],
+def create_be(bename, source=None):
+    cmd = ['/usr/sbin/beadm', 'create']
+    if source is not None:
+        cmd.extend(['-e', source])
+    cmd.append(bename)
+    proc = subprocess.Popen(cmd,
                             stdout=subprocess.DEVNULL,
                             stderr=subprocess.DEVNULL)
     proc.wait()
     if proc.returncode != 0:
         return False
     return True
+
+
+def be_exists(bename):
+    proc = subprocess.Popen(['/usr/sbin/beadm', 'list', '-H'],
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.DEVNULL)
+    proc.wait()
+    for line in proc.stdout:
+        line = line.decode('utf-8').rstrip()
+        if bename in line:
+            return True
+    return False
+
+
+def active_be():
+    proc = subprocess.Popen(['/usr/sbin/beadm', 'list', '-H'],
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.DEVNULL)
+    proc.wait()
+    for line in proc.stdout:
+        line = line.decode('utf-8').rstrip()
+        cols = line.split()
+        if 'N' in cols[1]:
+            return cols[0]
+    return None
 
 
 def distro_id():
@@ -105,7 +136,6 @@ def checkReleaseVer(conf, target=None):
 
 CMDS = ['sysupg', 'update']
 
-
 # --- The actual Plugin and Command
 
 
@@ -124,6 +154,8 @@ class BeadmCommand(dnf.cli.Command):
 
     def __init__(self, cli):
         super(BeadmCommand, self).__init__(cli)
+        self.command = None
+
 
     @staticmethod
     def set_argparser(parser):
@@ -132,16 +164,22 @@ class BeadmCommand(dnf.cli.Command):
                             help="keep installed packages if the new release's version is older")
         parser.add_argument("--be", type=str,
                             help="Optional boot environment name")
+        parser.add_argument("--source-be", type=str, dest='source',
+                            help="Optional non active boot environment name")
         parser.add_argument('tid', nargs=1, choices=CMDS,
                             metavar="[%s]" % "|".join(CMDS))
+        parser.add_argument('packages', nargs='*', help='Package to upgrade',
+                            action=OptionParser.ParseSpecGroupFileCallback,
+                            metavar='PACKAGE')
 
     def pre_configure(self):
         self.opts.installroot = tempfile.mkdtemp()
         self.base.conf.cachedir = os.path.join(self.opts.installroot, self.base.conf.cachedir.lstrip('/'))
         self.base.conf.logdir = os.path.join(self.opts.installroot, self.base.conf.logdir.lstrip('/'))
         self.base.conf.persistdir = os.path.join(self.opts.installroot, self.base.conf.persistdir.lstrip('/'))
-        if self.opts.be is None:
-            self.opts.be = '{}{}'.format(distro_id().lower(), self.opts.releasever)
+        if self.opts.source is None:
+            self.opts.source = active_be()
+        self._call_sub("pre")
 
     def configure(self):
         self._call_sub("configure")
@@ -164,7 +202,6 @@ class BeadmCommand(dnf.cli.Command):
         else:
             self.base.upgrade_all()
 
-
     def transaction_sysupg(self):
         if not unmount(self.opts.be):
             print(f"Could not unmount. To unmount run 'beadm unmount {self.opts.be}'")
@@ -172,22 +209,58 @@ class BeadmCommand(dnf.cli.Command):
 
     def configure_sysupg(self):
         checkReleaseVer(self.base.conf, target=self.opts.releasever)
-        print("Creating BE")
-        if not create_be(self.opts.be):
-            raise CliError(f"BE '{self.opts.be}' already exists.")
         self.cli.demands.root_user = True
         self.cli.demands.resolving = True
         self.cli.demands.available_repos = True
         self.cli.demands.sack_activation = True
+        self._create_be()
         mount(self.opts.be, self.opts.installroot)
 
+    def pre_sysupg(self):
+        if self.opts.be is None:
+            self.opts.be = '{}{}'.format(distro_id().lower(), self.opts.releasever)
+
     # Update system packages
+
     def run_update(self):
-        self.base.upgrade()
+        self.command.run()
 
     def configure_update(self):
         self.cli.demands.root_user = True
         self.cli.demands.resolving = True
         self.cli.demands.available_repos = True
         self.cli.demands.sack_activation = True
+        self._create_be()
         mount(self.opts.be, self.opts.installroot)
+        self.command.configure()
+
+    def pre_update(self):
+        timestamp = datetime.datetime.now().strftime('%Y%d%m%H%M')
+        if self.opts.be is None:
+            source = self.opts.source
+            name, _sep, tstamp = source.rpartition('-')
+            try:
+                datetime.datetime.strptime(tstamp, '%Y%d%m%H%M')
+                self.opts.be = '{}-{}'.format(name, timestamp)
+            except ValueError:
+                self.opts.be = '{}-{}'.format(source, timestamp)
+        self.command = dnf_upgrade.UpgradeCommand(self.cli)
+        self.command.opts = self.opts
+
+    def transaction_update(self):
+        time.sleep(10)
+        if not unmount(self.opts.be):
+            print(f"Could not unmount. To unmount run 'beadm unmount {self.opts.be}'")
+        print(f"Run 'beadm activate {self.opts.be}' to activate new system on next reboot")
+
+    # Helper methods
+    def _create_be(self):
+        msg = f"BE '{self.opts.be}' exists. Do you want to continue"
+        if be_exists(self.opts.be) and not self.base.output.userconfirm(
+                msg='{} [y/N]: '.format(msg), defaultyes_msg='{} [Y/n]: '.format(msg)):
+            raise CliError("Operation aborted.")
+        else:
+            print(f"Creating BE '{self.opts.be}'")
+            if not create_be(self.opts.be, self.opts.source):
+                raise CliError(f"Could not create '{self.opts.be}'")
+        return True
