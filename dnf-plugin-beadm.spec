@@ -1,6 +1,6 @@
 Name:		python3-dnf-plugin-beadm
 Version:	0.2.0
-Release:	1%{?dist}
+Release:	2%{?dist}
 Summary:	BE Plugin for DNF
 
 License:	GPLv3
@@ -10,6 +10,7 @@ BuildArch:	noarch
 
 Requires:	zfs-beadm >= 1.1.10
 Requires:   python3-dnf
+Requires:   %{_bindir}/lsb_release
 
 BuildRequires: python3
 BuildRequires: python3-rpm-macros
@@ -31,6 +32,9 @@ install -D -pm 644 beadm.py %{buildroot}%{python3_sitelib}/dnf-plugins/beadm.py
 %license
 
 %changelog
+* Fri May 31 2019 Jerzy Drozdz <rpmbuilder@jdsieci.pl> - 0.2.0-1
+- Added missing dependency
+
 * Mon Apr 08 2019 Jerzy Drozdz <rpmbuilder@jdsieci.pl> - 0.2.0-1
 - Added update sub command
 - Running commands on existing BE is allowed now
