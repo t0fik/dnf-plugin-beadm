@@ -8,7 +8,7 @@ URL:		https://github.com/t0fik/dnf-plugin-beadm
 Source0:	https://github.com/t0fik/dnf-plugin-beadm/archive/v%{version}/dnf-plugin-beadm-%{version}.tar.gz
 BuildArch:	noarch
 
-Requires:	zfs-beadm >= 1.1.10
+Requires:   zfs-beadm >= 1.1.10
 Requires:   python3-dnf
 Requires:   %{_bindir}/lsb_release
 
@@ -32,7 +32,7 @@ install -D -pm 644 beadm.py %{buildroot}%{python3_sitelib}/dnf-plugins/beadm.py
 %license
 
 %changelog
-* Fri May 31 2019 Jerzy Drozdz <rpmbuilder@jdsieci.pl> - 0.2.0-1
+* Fri May 31 2019 Jerzy Drozdz <rpmbuilder@jdsieci.pl> - 0.2.0-2
 - Added missing dependency
 
 * Mon Apr 08 2019 Jerzy Drozdz <rpmbuilder@jdsieci.pl> - 0.2.0-1
