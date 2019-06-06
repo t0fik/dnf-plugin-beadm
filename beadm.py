@@ -217,6 +217,7 @@ class BeadmCommand(dnf.cli.Command):
         mount(self.opts.be, self.opts.installroot)
 
     def pre_sysupg(self):
+        checkReleaseVer(self.base.conf, target=self.opts.releasever)
         if self.opts.be is None:
             self.opts.be = '{}{}'.format(distro_id().lower(), self.opts.releasever)
 
