@@ -260,7 +260,7 @@ class BeadmCommand(dnf.cli.Command):
         if be_exists(self.opts.be) and not self.base.output.userconfirm(
                 msg='{} [y/N]: '.format(msg), defaultyes_msg='{} [Y/n]: '.format(msg)):
             raise CliError("Operation aborted.")
-        else:
+        if not be_exists(self.opts.be):
             print(f"Creating BE '{self.opts.be}'")
             if not create_be(self.opts.be, self.opts.source):
                 raise CliError(f"Could not create '{self.opts.be}'")
